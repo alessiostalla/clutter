@@ -19,20 +19,20 @@
 (defmethod closer-mop:validate-superclass ((class standard-class-with-attributes) (superclass standard-class))
   t)
 
-(defmethod closer-mop:finalize-inheritance ((class standard-class-with-attributes))
-  (call-next-method)
+(defmethod closer-mop:finalize-inheritance :after ((class -with-attributes))
   (setf (attributes-of class)
-	(apply #'merge-attributes (remove nil (mapcar #'attributes-of (closer-mop:class-precedence-list class)))))
-  class)
+	(apply #'merge-attributes (remove nil (mapcar #'attributes-of (closer-mop:class-precedence-list class))))))
 
-(defmethod closer-mop:ensure-class-using-class ((class standard-class-with-attributes) name &rest args &key attributes)
-  (declare (ignorable class name args))
-  (let ((class (call-next-method)))
-    (when attributes
-      (setf (attributes-of class) (make-hash-table))
-      (dolist (attr attributes)
-	(setf (attribute (car attr) class) (cdr attr))))
-    class))
+(defmethod closer-mop:ensure-class-using-class :after ((class -with-attributes) name &rest args &key attributes)
+  (declare (ignorable name args))
+  (when attributes
+    (setf (attributes-of class) (attributes->hash-table attributes))))
+
+(defun attributes->hash-table (attributes)
+  (let ((table (make-hash-table)))
+    (dolist (attr attributes)
+      (setf (gethash (car attr) table) (cdr attr)))
+    table))
 
 (defmethod closer-mop:direct-slot-definition-class ((class standard-class-with-attributes) &rest initargs)
   (declare (ignore initargs))
@@ -46,7 +46,12 @@
   (declare (ignorable class name))
   (let ((result (call-next-method)))
     (setf (attributes-of result)
-	  (apply #'merge-attributes (remove nil (mapcar #'attributes-of direct-slot-definitions))))
+	  (apply #'merge-attributes
+		 (remove nil
+			 (mapcar (lambda (a) (if (listp a)
+						 (attributes->hash-table a)
+						 a))
+				 (mapcar #'attributes-of direct-slot-definitions)))))
     result))
 
 (defclass merged-attributes () ((attributes-list :initarg :attributes-list :reader attributes-list)))
