@@ -13,8 +13,8 @@
   :author "Alessio Stalla"
   :license "LGPL"
   :depends-on ("clutter" "rove")
-  :components ((:module "tests"
+  :components ((:module "test"
                 :components
-                ((:file "main"))))
+                ((:file "tests"))))
   :description "Test system for clutter"
   :perform (test-op (op c) (symbol-call :rove :run c)))
