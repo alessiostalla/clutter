@@ -1,0 +1,25 @@
+name: Build and test
+
+on:
+  push:
+
+jobs:
+  test:
+    name: ${{ matrix.lisp }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        lisp: [sbcl-bin, ccl-bin]
+        os: [macOS-latest, ubuntu-latest]
+
+    env:
+      LISP: ${{ matrix.lisp }}
+
+    steps:
+      - uses: actions/checkout@v1
+      - uses: 40ants/setup-lisp@v1
+        with:
+          asdf-system: clutter
+      - uses: 40ants/run-tests@v2
+        with:
+          asdf-system: clutter
