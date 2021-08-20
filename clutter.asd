@@ -12,7 +12,7 @@
 (defsystem "clutter/tests"
   :author "Alessio Stalla"
   :license "LGPL"
-  :depends-on ("clutter" "rove")
+  :depends-on ("clutter" "rove" "dissect")
   :components ((:module "test"
                 :components
                 ((:file "tests"))))
