@@ -1,5 +1,5 @@
 (defsystem "clutter"
-  :version "0.1.0"
+  :version "1.0.0"
   :author "Alessio Stalla"
   :license "LGPL"
   :depends-on ("closer-mop" "doplus")

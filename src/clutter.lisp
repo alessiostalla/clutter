@@ -21,12 +21,7 @@
 
 (defmethod closer-mop:finalize-inheritance :after ((class -with-attributes))
   (setf (attributes-of class)
-	(apply #'merge-attributes (remove nil (mapcar #'attributes-of (closer-mop:class-precedence-list class))))))
-
-(defmethod closer-mop:ensure-class-using-class :after ((class -with-attributes) name &rest args &key attributes)
-  (declare (ignorable name args))
-  (when attributes
-    (setf (attributes-of class) (attributes->hash-table attributes))))
+	(apply #'merge-attributes (closer-mop:class-precedence-list class))))
 
 (defun attributes->hash-table (attributes)
   (let ((table (make-hash-table)))
@@ -46,38 +41,40 @@
   (declare (ignorable class name))
   (let ((result (call-next-method)))
     (setf (attributes-of result)
-	  (apply #'merge-attributes
-		 (remove nil
-			 (mapcar (lambda (a) (if (listp a)
-						 (attributes->hash-table a)
-						 a))
-				 (mapcar #'attributes-of direct-slot-definitions)))))
+	  (apply #'merge-attributes direct-slot-definitions))
     result))
 
-(defclass merged-attributes () ((attributes-list :initarg :attributes-list :reader attributes-list)))
+(defclass merged-attributes ()
+  ((own-attributes :initarg :own :reader own-attributes)
+   (ancestors :initarg :ancestors :reader ancestors)))
 
-(defun merge-attributes (&rest attrs)
-  (if attrs
-      (make-instance 'merged-attributes :attributes-list attrs)
-      (make-hash-table)))
+(defun merge-attributes (instance &rest ancestors)
+  (make-instance 'merged-attributes
+		 :own (let ((attrs (attributes-of instance)))
+			(cond ((consp attrs) (attributes->hash-table attrs))
+			      ((null attrs) (make-hash-table))
+			      (t attrs)))
+		 :ancestors ancestors))
 
 (defgeneric get-attribute (map name))
 (defmethod get-attribute ((map hash-table) name)
   (gethash name map))
 (defmethod get-attribute ((map merged-attributes) name)
-  (do+ ((for attrs (in (attributes-list map))))
-    (multiple-value-bind (value present?) (get-attribute attrs name)
-      (when present? (return-from get-attribute (values value t)))))
-  (values nil nil))
+  (multiple-value-bind (value present?) (get-attribute (own-attributes map) name)
+    (if present?
+	(values value present?)
+	(do+ ((for attributed (in (ancestors map)))
+	      (returning (values nil nil)))
+	  (let ((attrs (attributes-of attributed)))
+	    (when attrs
+	      (multiple-value-bind (value present?) (get-attribute attrs name)
+		(when present? (return-from get-attribute (values value present?))))))))))
 
 (defgeneric set-attribute (map name value))
 (defmethod set-attribute ((map hash-table) name value)
   (setf (gethash name map) value))
 (defmethod set-attribute ((map merged-attributes) name value)
-  (let ((attrs (car (attributes-list map))))
-    (if attrs
-	(set-attribute attrs name value)
-	(error "No attributes to set"))))
+  (set-attribute (own-attributes map) name value))
 
 (defun attribute (name attributed-element)
   (let ((attrs (attributes-of attributed-element)))
